@@ -92,7 +92,7 @@ class Reel{
       };
       // The provider briefly paints central transport controls on startup.
       // Keep the selected thumbnail in front until those controls fade.
-      if(item.type==='youtube')this.revealTimer=setTimeout(reveal,2500);else reveal();
+      if(item.type==='youtube')this.revealTimer=setTimeout(reveal,4500);else reveal();
     };
     const failed=()=>{if(token!==this.token)return;clearTimeout(this.revealTimer);this.revealTimer=null;this.playing=false;resolvePlaying(false);if(!this.el.classList.contains('moving'))this.fallback();};
     if(item.type==='video'){
@@ -150,6 +150,7 @@ class Reel{
     this.pause();this.el.classList.add('moving');this.retry.hidden=true;this.spinner.hidden=false;
     // Preload behind the moving thumbnails; reveal only after actual playback.
     const loading=this.load(target);
+    const playbackToken=this.token;
     for(let i=0;i<items.length;i++){
       this.images[1].src=items[i].thumbnail;
       if(!reduced){
@@ -159,8 +160,13 @@ class Reel{
       this.images[0].src=items[i].thumbnail;this.images[0].alt=items[i].title||'Short video';
     }
     this.el.classList.remove('moving');
-    const ok=this.playing||await Promise.race([loading,delay(2600).then(()=>false)]);
-    if(ok)this.spinner.hidden=true;else this.fallback();
+    // Lock immediately on the final thumbnail. Network buffering and the
+    // provider's control-fade delay must never change slot/sound timing.
+    if(this.playing)this.spinner.hidden=true;
+    void loading.then(ok=>{
+      if(playbackToken!==this.token||this.el.classList.contains('moving'))return;
+      if(!ok&&!this.playing)this.fallback();
+    });
   }
 }
 const reels=[0,1,2].map(i=>new Reel(i));
