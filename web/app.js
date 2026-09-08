@@ -60,23 +60,11 @@ class Reel{
     row.append(this.el);this.media=this.el.querySelector('.media');this.spinner=this.el.querySelector('.spinner');
     this.images=[...this.spinner.querySelectorAll('img')];this.retry=this.el.querySelector('.retry');
     this.retry.addEventListener('click',()=>this.retryPlayback());
-    this.resizeObserver=new ResizeObserver(()=>this.sizeEmbeddedPlayer());
-    this.resizeObserver.observe(this.media);
-  }
-  sizeEmbeddedPlayer(){
-    const frame=this.media.querySelector('iframe');if(!frame)return;
-    const {width,height}=this.media.getBoundingClientRect();if(!width||!height)return;
-    // Put provider chrome in the player's letterbox area outside the reel.
-    // Constrain the portrait picture to the reel height, including jackpot.
-    const scale=Math.min(1,width/200);
-    frame.style.width=Math.max(200,Math.min(width,height*9/16))+'px';
-    frame.style.height=(height/scale+240)+'px';
-    frame.style.transform=`translate(-50%,-50%) scale(${scale})`;
   }
   showThumb(item){this.images[0].src=item.thumbnail;this.images[0].alt=item.title||'Short video';this.images[1].removeAttribute('src');this.spinner.hidden=false;}
   mute(){if(this.video)this.video.muted=true;this.player?.mute?.();}
   pause(){this.mute();this.video?.pause();this.player?.pauseVideo?.();}
-  dispose(){clearTimeout(this.revealTimer);this.revealTimer=null;this.player?.destroy?.();this.player=null;if(this.video){this.video.pause();this.video.removeAttribute('src');this.video.load();}this.video=null;this.media.replaceChildren();}
+  dispose(){this.player?.destroy?.();this.player=null;if(this.video){this.video.pause();this.video.removeAttribute('src');this.video.load();}this.video=null;this.media.replaceChildren();}
   async load(item){
     const token=++this.token;this.current=item;this.playing=false;this.retry.hidden=true;
     this.el.classList.remove('unavailable');this.dispose();
@@ -84,17 +72,10 @@ class Reel{
     const ready=new Promise(resolve=>{resolvePlaying=resolve;});
     const played=()=>{
       if(token!==this.token)return;
-      if(this.revealTimer||this.playing)return;
-      const reveal=()=>{
-        this.revealTimer=null;if(token!==this.token)return;
-        this.playing=true;resolvePlaying(true);
-        if(!this.el.classList.contains('moving')){this.spinner.hidden=true;this.retry.hidden=true;this.el.classList.remove('unavailable');}
-      };
-      // The provider briefly paints central transport controls on startup.
-      // Keep the selected thumbnail in front until those controls fade.
-      if(item.type==='youtube')this.revealTimer=setTimeout(reveal,4500);else reveal();
+      this.playing=true;resolvePlaying(true);
+      if(!this.el.classList.contains('moving')){this.spinner.hidden=true;this.retry.hidden=true;this.el.classList.remove('unavailable');}
     };
-    const failed=()=>{if(token!==this.token)return;clearTimeout(this.revealTimer);this.revealTimer=null;this.playing=false;resolvePlaying(false);if(!this.el.classList.contains('moving'))this.fallback();};
+    const failed=()=>{if(token!==this.token)return;this.playing=false;resolvePlaying(false);if(!this.el.classList.contains('moving'))this.fallback();};
     if(item.type==='video'){
       const video=document.createElement('video');this.video=video;
       video.muted=true;video.loop=true;video.playsInline=true;video.preload='auto';video.src=item.url;
@@ -106,20 +87,10 @@ class Reel{
         const host=document.createElement('div');this.media.append(host);
         this.player=new YT.Player(host,{
           width:'100%',height:'100%',videoId:item.id,
-          playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,iv_load_policy:3,playsinline:1,rel:0,loop:1,playlist:item.id,origin:location.origin},
+          playerVars:{autoplay:1,controls:0,playsinline:1,rel:0,loop:1,playlist:item.id,origin:location.origin},
           events:{
-            onReady:event=>{if(token===this.token){
-              const frame=event.target.getIframe();frame.setAttribute('tabindex','-1');frame.setAttribute('aria-hidden','true');frame.setAttribute('title','');frame.setAttribute('inert','');
-              this.sizeEmbeddedPlayer();event.target.mute();event.target.playVideo();
-            }},
-            onStateChange:event=>{
-              if(token!==this.token)return;
-              if(event.data===1)played();
-              else if([0,2,3].includes(event.data)){
-                clearTimeout(this.revealTimer);this.revealTimer=null;this.playing=false;this.spinner.hidden=false;
-                if(event.data===0)event.target.playVideo();
-              }
-            },
+            onReady:event=>{if(token===this.token){event.target.mute();event.target.playVideo();}},
+            onStateChange:event=>{if(token!==this.token)return;if(event.data===1)played();if(event.data===0)event.target.playVideo();},
             onError:event=>{if([100,101,150].includes(event.data))item.unavailable=true;failed();},
             onAutoplayBlocked:()=>{if(token===this.token){resolvePlaying(false);if(!this.el.classList.contains('moving'))this.fallback('Play video');}},
           },
@@ -150,7 +121,6 @@ class Reel{
     this.pause();this.el.classList.add('moving');this.retry.hidden=true;this.spinner.hidden=false;
     // Preload behind the moving thumbnails; reveal only after actual playback.
     const loading=this.load(target);
-    const playbackToken=this.token;
     for(let i=0;i<items.length;i++){
       this.images[1].src=items[i].thumbnail;
       if(!reduced){
@@ -160,13 +130,8 @@ class Reel{
       this.images[0].src=items[i].thumbnail;this.images[0].alt=items[i].title||'Short video';
     }
     this.el.classList.remove('moving');
-    // Lock immediately on the final thumbnail. Network buffering and the
-    // provider's control-fade delay must never change slot/sound timing.
-    if(this.playing)this.spinner.hidden=true;
-    void loading.then(ok=>{
-      if(playbackToken!==this.token||this.el.classList.contains('moving'))return;
-      if(!ok&&!this.playing)this.fallback();
-    });
+    const ok=this.playing||await Promise.race([loading,delay(2600).then(()=>false)]);
+    if(ok)this.spinner.hidden=true;else this.fallback();
   }
 }
 const reels=[0,1,2].map(i=>new Reel(i));
