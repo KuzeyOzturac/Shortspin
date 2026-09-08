@@ -4,3 +4,8 @@
 @keyframes shake{0%,100%{transform:translate(0)}15%{transform:translate(-7px,2px)}30%{transform:translate(7px,-2px)}45%{transform:translate(-5px,-3px)}60%{transform:translate(5px,3px)}75%{transform:translate(-3px,1px)}}
 @media(max-width:700px){#machine{padding:18px 10px;min-height:100svh;gap:14px}h1{font-size:32px}#reels{gap:6px}.reel{height:min(500px,60svh);border-radius:12px}.media,.spinner{border-radius:8px}#spin{font-size:23px}#result{font-size:21px}.reel .retry{font-size:12px;white-space:normal;max-width:95%;padding:6px}.jackpot .reel{flex-basis:min(430px,100%)}}
 @media(prefers-reduced-motion:reduce){.reel.moving,.shake{animation:none}}
+
+/* Keep provider header/footer outside the visible aperture, and prevent
+   pointer/focus interactions from bringing back hover transport controls. */
+.media{pointer-events:none;background:#000}
+.media iframe{position:absolute;left:50%;top:50%;width:min(100%,276px);height:calc(100% + 240px);transform:translate(-50%,-50%);pointer-events:none;max-width:none}
