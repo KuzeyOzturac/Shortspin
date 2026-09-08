@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#121212">
+  <meta name="description" content="Shortspin — a three-reel Shorts spinning machine.">
+  <title>Shortspin</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main id="machine">
+    <h1>SHORTSPIN</h1>
+    <div id="reels" aria-label="Three video reels"></div>
+    <p id="result" role="status" aria-live="polite">Press START</p>
+    <button id="spin" type="button"><span>START</span></button>
+    <p id="notice" role="status" hidden></p>
+  </main>
+  <canvas id="effects" aria-hidden="true"></canvas>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
